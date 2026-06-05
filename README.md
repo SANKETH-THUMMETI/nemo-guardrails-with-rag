@@ -197,39 +197,65 @@ These documents are split into ~500-character chunks and indexed in FAISS at sta
 ```
 guardrails-webinar-main/
 │
-├── app.py                  ← Streamlit app (entry point)
+├── app.py                      ← Entry point — page config, import guard, tab wiring (~65 lines)
 │
 ├── src/
-│   ├── __init__.py         ← Makes src/ a Python package
-│   ├── hr_docs.py          ← The 6 HR policy documents (raw text)
-│   ├── rag.py              ← FAISS vector store builder + retrieval function
-│   └── guards.py           ← NeMo Guardrails config (Colang + YAML + Python actions)
+│   ├── __init__.py
+│   │
+│   ├── config.py               ← All constants: model list, prompts, output-scan patterns
+│   ├── hr_docs.py              ← 6 HR policy documents (raw text, the knowledge base)
+│   ├── rag.py                  ← FAISS vector store builder + retrieval function
+│   ├── guards.py               ← NeMo Guardrails: Colang rules, YAML config, PII action
+│   ├── pipeline.py             ← run_pipeline() — pure business logic, no Streamlit
+│   │
+│   └── ui/
+│       ├── __init__.py
+│       ├── sidebar.py          ← BYOK key input + model selectors → returns (key, guard_model, chat_model)
+│       ├── landing.py          ← Landing page shown when no API key entered
+│       ├── tab_chat.py         ← Chat column + pipeline trace column
+│       └── tab_docs.py         ← HR policy document browser
 │
-├── requirements.txt        ← Python dependencies
+├── requirements.txt
 ├── .gitignore
 └── README.md
 ```
 
 ### File Roles
 
-**`app.py`** — Streamlit UI. Handles:
-- BYOK sidebar (Groq API key input, model selection)
-- Two tabs: 💬 Assistant (chat + pipeline trace) and 📄 HR Policies (browse the docs)
-- `run_pipeline()` function that wires the 4 stages together
-- Error display directly on page (no silent failures)
+**`app.py`** — Thin wiring layer only (~65 lines):
+1. `st.set_page_config()`
+2. Import guard (shows clear error on screen if a package is missing)
+3. Call `render_sidebar()` → get `groq_key`, `guard_model`, `chat_model`
+4. Show landing page if no key, else build vectorstore and render tabs
 
-**`src/hr_docs.py`** — A Python list of dicts `[{"title": str, "content": str}]`. This is the entire knowledge base. Easy to extend by adding more dicts.
+**`src/config.py`** — Single source of truth for all constants:
+- `GROQ_MODELS` dict, default model names, `HR_SYSTEM_PROMPT`, `SENSITIVE_OUTPUT_PATTERNS`
+
+**`src/pipeline.py`** — The core business logic with no Streamlit dependency:
+- `run_pipeline(message, groq_key, guard_model, chat_model, vectorstore)` → `(reply, trace)`
+- `check_output(text)` — regex scan for credential leaks, SSNs, hardcoded salaries
+- `ThreadPoolExecutor` for isolating NeMo's asyncio
+
+**`src/hr_docs.py`** — `HR_DOCUMENTS`: a list of dicts `[{"title": str, "content": str}]`. Add more dicts to expand the knowledge base.
 
 **`src/rag.py`** — Two functions:
-- `build_vectorstore()` — reads HR_DOCUMENTS, splits them, embeds them, builds a FAISS index. Cached with `@st.cache_resource` so it only runs once per deployment.
-- `retrieve(query, vectorstore, k=3)` — embeds the query, searches FAISS, returns top-3 chunks with their relevance scores.
+- `build_vectorstore()` — splits docs, embeds with FastEmbed, builds FAISS index (cached once)
+- `retrieve(query, vectorstore, k=3)` — returns top-k chunks with relevance scores
 
-**`src/guards.py`** — The guardrail logic:
-- `COLANG_CONTENT` — the Colang rulebook (intent definitions + flows)
-- `YAML_CONTENT` — NeMo config (which rails to enable)
-- `detect_pii()` — Python action registered with NeMo, runs on every message
-- `build_rails(llm)` — assembles a `LLMRails` instance with the config and actions
-- `parse_nemo_response(raw)` — normalises NeMo's output into `(text, is_blocked, reason, is_dialog, needs_rag)`
+**`src/guards.py`** — NeMo Guardrails config:
+- `COLANG_CONTENT` — Colang rulebook (intents + flows)
+- `YAML_CONTENT` — which flows run as systematic rails
+- `detect_pii()` — `@action` Python function, runs on every message
+- `build_rails(llm)` → `LLMRails` instance
+- `parse_nemo_response(raw)` → `(text, is_blocked, reason, is_dialog, needs_rag)`
+
+**`src/ui/sidebar.py`** — Renders the sidebar and returns `(groq_key, guard_model, chat_model)`
+
+**`src/ui/landing.py`** — Renders the landing page (no key entered yet)
+
+**`src/ui/tab_chat.py`** — Renders the chat column and the live pipeline trace column
+
+**`src/ui/tab_docs.py`** — Renders the HR document browser tab
 
 ---
 
