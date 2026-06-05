@@ -5,6 +5,5 @@ langchain
 langchain-core
 langchain-groq
 langchain-community
-langchain-chroma
 langchain-text-splitters
-chromadb
+faiss-cpu

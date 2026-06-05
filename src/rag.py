@@ -1,11 +1,12 @@
 """
-RAG pipeline: build a Chroma vector store from HR documents and retrieve relevant chunks.
+RAG pipeline: build a FAISS vector store from HR documents and retrieve relevant chunks.
+Using FAISS (no telemetry dependencies) instead of ChromaDB.
 """
 
 import streamlit as st
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 
 from src.hr_docs import HR_DOCUMENTS
 
@@ -33,11 +34,7 @@ def _make_documents():
 def build_vectorstore():
     embeddings = FastEmbedEmbeddings(model_name=EMBED_MODEL)
     docs = _make_documents()
-    vectorstore = Chroma.from_documents(
-        documents=docs,
-        embedding=embeddings,
-        collection_name="hr_policies",
-    )
+    vectorstore = FAISS.from_documents(documents=docs, embedding=embeddings)
     return vectorstore
 
 
