@@ -3,7 +3,7 @@ RAG pipeline: build a Chroma vector store from HR documents and retrieve relevan
 """
 
 import streamlit as st
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_chroma import Chroma
 
