@@ -1,0 +1,61 @@
+# ── Secrets & keys ────────────────────────────────────────────
+.env
+.env.*
+*.env
+secrets.toml
+*.key
+*.pem
+*.p12
+
+# ── Virtual environments ───────────────────────────────────────
+venv/
+.venv/
+env/
+nemenv/
+nmenv/
+*env/
+
+# ── Python cache ───────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.Python
+
+# ── Chroma vector store (rebuilt at runtime) ──────────────────
+chroma_db/
+chroma_langchain_db/
+*.chroma
+
+# ── FastEmbed model cache (downloaded at runtime) ─────────────
+.fastembed_cache/
+fastembed_cache/
+models/
+
+# ── Jupyter ────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Streamlit ─────────────────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── OS ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user
+
+# ── Logs ───────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Claude Code ────────────────────────────────────────────────
+.claude/

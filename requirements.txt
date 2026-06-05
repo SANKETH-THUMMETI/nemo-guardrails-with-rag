@@ -1,0 +1,9 @@
+streamlit
+nemoguardrails
+fastembed
+langchain
+langchain-core
+langchain-groq
+langchain-community
+langchain-chroma
+chromadb
