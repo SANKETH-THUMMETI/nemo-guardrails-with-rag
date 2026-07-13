@@ -1,132 +1,74 @@
 """
-Core pipeline logic — no Streamlit imports.
-
-run_pipeline() wires together:
-  NeMo input rails (LLM ①) → FAISS retrieval → answer generation (LLM ②) → output sanitizer
+Sidebar UI — BYOK key input + model selectors for NVIDIA NIM.
+Returns (nvidia_api_key, use_guardrails, guard_model, chat_model).
 """
 
-import asyncio
-import re
-import time
-import traceback as tb
-from concurrent.futures import ThreadPoolExecutor
-
-# CHANGED: Replaced langchain_groq with native langchain_nvidia_ai_endpoints
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from langchain_core.messages import SystemMessage, HumanMessage
-
-from src.guards import build_rails, parse_nemo_response
-from src.rag import retrieve
-from src.config import HR_SYSTEM_PROMPT, SENSITIVE_OUTPUT_PATTERNS
-
-_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="nemo")
+import sys
+import streamlit as st
 
 
-def check_output(text: str) -> list:
-    return [label for label, pat in SENSITIVE_OUTPUT_PATTERNS.items()
-            if re.search(pat, text)]
+def render_sidebar() -> tuple:
+    with st.sidebar:
+        st.title("🛡️ HR Policy Assistant")
+        st.caption("NeMo Guardrails + FAISS RAG — Acme Corp")
+        st.divider()
 
-
-# CHANGED: Updated parameter signature to accept nvidia_api_key instead of groq_key
-def run_pipeline(message: str, nvidia_api_key: str, guard_model: str, chat_model: str, vectorstore) -> tuple:
-    """
-    Returns (reply: str, trace: dict).
-    Makes 2 LLM calls: NeMo guard (intent classification) + NVIDIA NIM chat (RAG answer).
-    NeMo runs in a worker thread to isolate asyncio from Streamlit's event loop.
-    """
-    trace   = {}
-    t_total = time.time()
-
-    # ── LLM ① — NeMo input rails ─────────────────────────────────────────────
-    def _nemo_worker():
-        # CHANGED: Using ChatNVIDIA to drive the NeMo Guardrails engine configuration
-        llm = ChatNVIDIA(
-            nvidia_api_key=nvidia_api_key, 
-            model=guard_model, 
-            temperature=0.0
+        st.subheader("🔑 Bring Your Own Key")
+        nvidia_api_key = st.text_input(
+            "NVIDIA API Key",
+            type="password",
+            placeholder="nvapi-...",
         )
-        rails = build_rails(llm)
-        async def _run():
-            return await rails.generate_async(
-                messages=[{"role": "user", "content": message}]
-            )
-        return asyncio.run(_run())
 
-    t0 = time.time()
-    nemo_error = None
-    try:
-        raw = _executor.submit(_nemo_worker).result(timeout=60)
-    except Exception:
-        raw        = f"Guard error"
-        nemo_error = tb.format_exc()
-    rail_ms = round((time.time() - t0) * 1000)
+        if nvidia_api_key:
+            st.success("Key loaded ✓", icon="🔒")
+        else:
+            st.info("Paste your NVIDIA key above to start.", icon="ℹ️")
 
-    text, is_blocked, block_reason, is_dialog, needs_rag = parse_nemo_response(raw)
+        st.divider()
 
-    trace["rail"] = {
-        "blocked": is_blocked,
-        "reason":  block_reason,
-        "dialog":  is_dialog,
-        "ms":      rail_ms,
-        "model":   guard_model,
-        "error":   nemo_error,
-    }
-
-    if is_blocked or is_dialog:
-        trace["total_ms"] = round((time.time() - t_total) * 1000)
-        return text, trace
-
-    # ── FAISS retrieval ───────────────────────────────────────────────────────
-    t1 = time.time()
-    rag_error = None
-    try:
-        chunks = retrieve(message, vectorstore, k=3)
-    except Exception:
-        chunks    = []
-        rag_error = tb.format_exc()
-    rag_ms = round((time.time() - t1) * 1000)
-    trace["retrieval"] = {"chunks": chunks, "ms": rag_ms, "error": rag_error}
-
-    # ── LLM ② — answer generation ────────────────────────────────────────────
-    context_text = "\n\n---\n\n".join(
-        f"[{c['source']}]\n{c['content']}" for c in chunks
-    ) if chunks else "No relevant policy excerpts were retrieved."
-
-    t2 = time.time()
-    gen_error = None
-    answer    = ""
-    try:
-        # CHANGED: ChatGroq initialization swapped to ChatNVIDIA client with endpoint setup
-        llm = ChatNVIDIA(
-            nvidia_api_key=nvidia_api_key, 
-            model=chat_model, 
-            temperature=1.0,
-            top_p=1.0,
-            max_tokens=16384,
-            seed=42
+        st.subheader("⚙️ Execution Strategy")
+        
+        # NEW: Toggle button to let you choose 1 model or 2 models
+        use_guardrails = st.checkbox(
+            "Enable Guardrail Shield (Uses 2 Models)", 
+            value=True,
+            help="Uncheck this to skip intent classification and only use 1 model for faster responses."
         )
-        # CHANGED: Replaced pure dict formats with proper LangChain Message constructs
-        resp = llm.invoke([
-            SystemMessage(content=HR_SYSTEM_PROMPT.format(context=context_text)),
-            HumanMessage(content=message),
-        ])
-        answer = resp.content
-    except Exception:
-        gen_error = tb.format_exc()
-        answer    = "LLM call failed — see trace for details."
-    gen_ms = round((time.time() - t2) * 1000)
-    trace["generation"] = {"ms": gen_ms, "model": chat_model, "error": gen_error}
 
-    # ── Output sanitizer ──────────────────────────────────────────────────────
-    t3     = time.time()
-    issues = check_output(answer)
-    out_ms = round((time.time() - t3) * 1000)
+        st.divider()
 
-    if issues:
-        answer = "My response contained potentially sensitive information and has been withheld. Please contact hr@acmecorp.com directly."
-        trace["output_rail"] = {"blocked": True, "issues": issues, "ms": out_ms}
-    else:
-        trace["output_rail"] = {"blocked": False, "ms": out_ms}
+        st.subheader("🤖 Model Selection")
 
-    trace["total_ms"] = round((time.time() - t_total) * 1000)
-    return answer, trace
+        guard_options = [
+            "z-ai/glm-5.2",
+            "deepseek-ai/deepseek-v4-pro",
+            "meta/llama-3.3-70b-instruct"
+        ]
+        
+        # Updated: The selectbox disables itself if use_guardrails is unchecked
+        guard_model = st.selectbox(
+            "① Guard model — NeMo intent classification",
+            options=guard_options,
+            index=0,
+            disabled=not use_guardrails,
+            help="NeMo uses this model to decide whether your message is off-topic or a jailbreak.",
+        )
+
+        chat_options = [
+            "deepseek-ai/deepseek-v4-flash",
+            "meta/llama-3.3-70b-instruct"
+        ]
+
+        chat_model = st.selectbox(
+            "② Chat model — RAG answer generation",
+            options=chat_options,
+            index=0,
+            help="Used to generate the final answer from the top-3 HR policy chunks.",
+        )
+
+        st.divider()
+        st.caption(f"Python {sys.version.split()[0]} · NVIDIA NIM")
+
+    # Return the toggle along with the other choices
+    return nvidia_api_key, use_guardrails, guard_model, chat_model
