@@ -43,7 +43,7 @@ if _import_errors:
 
 # ── Sidebar — returns user inputs ─────────────────────────────────────────────
 
-# UPDATED: Added use_guardrails unpacking parameter matching the new sidebar signature
+# Receives all variables including the new guardrail toggle
 nvidia_api_key, use_guardrails, guard_model, chat_model = render_sidebar()
 
 # ── Landing page when no key provided ────────────────────────────────────────
@@ -70,7 +70,7 @@ st.caption("Acme Corp · NeMo Guardrails + FAISS RAG + NVIDIA NIM")
 tab_chat, tab_docs = st.tabs(["💬 Assistant", "📄 HR Policy Documents"])
 
 with tab_chat:
-    # UPDATED: Passing down use_guardrails explicitly to the UI chat handler
+    # Forwarding everything correctly down into the UI chat tab layer
     render_chat_tab(
         vectorstore=vectorstore, 
         nvidia_api_key=nvidia_api_key, 
