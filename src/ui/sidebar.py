@@ -1,6 +1,6 @@
 """
 Sidebar UI — BYOK key input + model selectors for NVIDIA NIM.
-Returns (nvidia_api_key, guard_model, chat_model).
+Returns (nvidia_api_key, use_guardrails, guard_model, chat_model).
 """
 
 import sys
@@ -14,14 +14,10 @@ def render_sidebar() -> tuple:
         st.divider()
 
         st.subheader("🔑 Bring Your Own Key")
-        st.caption("Keys are used only for this session and never stored.")
-
-        # CHANGED: Replaced Groq with NVIDIA NIM API configuration
         nvidia_api_key = st.text_input(
             "NVIDIA API Key",
             type="password",
             placeholder="nvapi-...",
-            help="Get your key at build.nvidia.com or integrate.api.nvidia.com",
         )
 
         if nvidia_api_key:
@@ -31,29 +27,32 @@ def render_sidebar() -> tuple:
 
         st.divider()
 
-        st.subheader("🤖 Two LLMs Per Request")
-        st.caption(
-            "Every message makes **2 separate LLM calls** via NVIDIA NIM — "
-            "one for guardrail classification, one for the final answer. "
-            "You can pick different models for each."
+        st.subheader("⚙️ Execution Strategy")
+        
+        # NEW: Toggle button to let you choose 1 model or 2 models
+        use_guardrails = st.checkbox(
+            "Enable Guardrail Shield (Uses 2 Models)", 
+            value=True,
+            help="Uncheck this to skip intent classification and only use 1 model for faster responses."
         )
 
-        # CHANGED: Hardcoded choices to use your requested NVIDIA NIM models explicitly
+        st.divider()
+
+        st.subheader("🤖 Model Selection")
+
         guard_options = [
             "z-ai/glm-5.2",
             "deepseek-ai/deepseek-v4-pro",
             "meta/llama-3.3-70b-instruct"
         ]
         
+        # Updated: The selectbox disables itself if use_guardrails is unchecked
         guard_model = st.selectbox(
             "① Guard model — NeMo intent classification",
             options=guard_options,
             index=0,
-            help=(
-                "NeMo uses this model to decide whether your message is off-topic, "
-                "a jailbreak, a request for confidential data, etc. "
-                "A stronger model catches more subtle attacks."
-            ),
+            disabled=not use_guardrails,
+            help="NeMo uses this model to decide whether your message is off-topic or a jailbreak.",
         )
 
         chat_options = [
@@ -65,28 +64,11 @@ def render_sidebar() -> tuple:
             "② Chat model — RAG answer generation",
             options=chat_options,
             index=0,
-            help=(
-                "Used to generate the final answer from the top-3 HR policy chunks "
-                "retrieved by FAISS. A faster/cheaper model is fine here."
-            ),
+            help="Used to generate the final answer from the top-3 HR policy chunks.",
         )
 
-        # Updated model rule warning check for smaller engines if applicable
-        if "flash" in chat_model or "5.2" in guard_model:
-            st.caption("⚡ Running high-efficiency inference options.")
-
         st.divider()
+        st.caption(f"Python {sys.version.split()[0]} · NVIDIA NIM")
 
-        st.subheader("⚙️ Pipeline")
-        st.markdown("""
-**Per message:**
-1. PII check (Python regex, systematic)
-2. Intent classification → LLM ① (guard)
-3. FAISS retrieves top-3 chunks
-4. Answer generation → LLM ② (chat)
-5. Output sanitizer (Python regex)
-        """)
-        st.divider()
-        st.caption(f"Python {sys.version.split()[0]} · NVIDIA NIM Integration")
-
-    return nvidia_api_key, guard_model, chat_model
+    # Return the toggle along with the other choices
+    return nvidia_api_key, use_guardrails, guard_model, chat_model
