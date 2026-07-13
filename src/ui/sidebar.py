@@ -1,11 +1,10 @@
 """
-Sidebar UI — BYOK key input + model selectors.
-Returns (groq_key, guard_model, chat_model).
+Sidebar UI — BYOK key input + model selectors for NVIDIA NIM.
+Returns (nvidia_api_key, guard_model, chat_model).
 """
 
 import sys
 import streamlit as st
-from src.config import GROQ_MODELS, GUARD_MODEL_DEFAULT, CHAT_MODEL_DEFAULT
 
 
 def render_sidebar() -> tuple:
@@ -17,51 +16,64 @@ def render_sidebar() -> tuple:
         st.subheader("🔑 Bring Your Own Key")
         st.caption("Keys are used only for this session and never stored.")
 
-        groq_key = st.text_input(
-            "Groq API Key",
+        # CHANGED: Replaced Groq with NVIDIA NIM API configuration
+        nvidia_api_key = st.text_input(
+            "NVIDIA API Key",
             type="password",
-            placeholder="gsk_...",
-            help="Get a free key at console.groq.com",
+            placeholder="nvapi-...",
+            help="Get your key at build.nvidia.com or integrate.api.nvidia.com",
         )
 
-        if groq_key:
+        if nvidia_api_key:
             st.success("Key loaded ✓", icon="🔒")
         else:
-            st.info("Paste your Groq key above to start.", icon="ℹ️")
+            st.info("Paste your NVIDIA key above to start.", icon="ℹ️")
 
         st.divider()
 
         st.subheader("🤖 Two LLMs Per Request")
         st.caption(
-            "Every message makes **2 separate LLM calls** via Groq — "
+            "Every message makes **2 separate LLM calls** via NVIDIA NIM — "
             "one for guardrail classification, one for the final answer. "
             "You can pick different models for each."
         )
 
+        # CHANGED: Hardcoded choices to use your requested NVIDIA NIM models explicitly
+        guard_options = [
+            "z-ai/glm-5.2",
+            "deepseek-ai/deepseek-v4-pro",
+            "meta/llama-3.3-70b-instruct"
+        ]
+        
         guard_model = st.selectbox(
             "① Guard model — NeMo intent classification",
-            options=list(GROQ_MODELS.keys()),
-            index=list(GROQ_MODELS.keys()).index(GUARD_MODEL_DEFAULT),
-            format_func=lambda m: GROQ_MODELS[m],
+            options=guard_options,
+            index=0,
             help=(
                 "NeMo uses this model to decide whether your message is off-topic, "
                 "a jailbreak, a request for confidential data, etc. "
                 "A stronger model catches more subtle attacks."
             ),
         )
+
+        chat_options = [
+            "deepseek-ai/deepseek-v4-flash",
+            "meta/llama-3.3-70b-instruct"
+        ]
+
         chat_model = st.selectbox(
             "② Chat model — RAG answer generation",
-            options=list(GROQ_MODELS.keys()),
-            index=list(GROQ_MODELS.keys()).index(CHAT_MODEL_DEFAULT),
-            format_func=lambda m: GROQ_MODELS[m],
+            options=chat_options,
+            index=0,
             help=(
                 "Used to generate the final answer from the top-3 HR policy chunks "
                 "retrieved by FAISS. A faster/cheaper model is fine here."
             ),
         )
 
-        if guard_model == "llama-3.1-8b-instant":
-            st.warning("8B models may miss subtle jailbreaks. 70B+ is recommended for the guard model.")
+        # Updated model rule warning check for smaller engines if applicable
+        if "flash" in chat_model or "5.2" in guard_model:
+            st.caption("⚡ Running high-efficiency inference options.")
 
         st.divider()
 
@@ -75,6 +87,6 @@ def render_sidebar() -> tuple:
 5. Output sanitizer (Python regex)
         """)
         st.divider()
-        st.caption(f"Python {sys.version.split()[0]}")
+        st.caption(f"Python {sys.version.split()[0]} · NVIDIA NIM Integration")
 
-    return groq_key, guard_model, chat_model
+    return nvidia_api_key, guard_model, chat_model
