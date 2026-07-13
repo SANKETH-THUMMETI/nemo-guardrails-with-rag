@@ -169,3 +169,7 @@ def render_chat_tab(vectorstore, groq_key: str, guard_model: str, chat_model: st
 
     with col_trace:
         _render_trace(st.session_state.get("last_trace"))
+
+def render_chat_tab(vectorstore, nvidia_api_key, use_guardrails, guard_model, chat_model):
+    # inside, pass it to run_pipeline:
+    # run_pipeline(message, nvidia_api_key, use_guardrails, guard_model, chat_model, vectorstore)
