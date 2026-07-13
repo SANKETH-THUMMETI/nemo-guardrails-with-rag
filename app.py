@@ -43,12 +43,11 @@ if _import_errors:
 
 # ── Sidebar — returns user inputs ─────────────────────────────────────────────
 
-# CHANGED: groq_key renamed to nvidia_api_key to align with the new endpoint client
-nvidia_api_key, guard_model, chat_model = render_sidebar()
+# UPDATED: Added use_guardrails unpacking parameter matching the new sidebar signature
+nvidia_api_key, use_guardrails, guard_model, chat_model = render_sidebar()
 
 # ── Landing page when no key provided ────────────────────────────────────────
 
-# CHANGED: Verifying nvidia_api_key instead of groq_key
 if not nvidia_api_key:
     render_landing()
     st.stop()
@@ -66,14 +65,19 @@ except Exception:
 # ── Page + tabs ───────────────────────────────────────────────────────────────
 
 st.title("HR Policy Assistant")
-# CHANGED: Updated caption to reflect NVIDIA NIM ecosystem shift
 st.caption("Acme Corp · NeMo Guardrails + FAISS RAG + NVIDIA NIM")
 
 tab_chat, tab_docs = st.tabs(["💬 Assistant", "📄 HR Policy Documents"])
 
 with tab_chat:
-    # CHANGED: Forwarding nvidia_api_key down into the rendering layer
-    render_chat_tab(vectorstore, nvidia_api_key, guard_model, chat_model)
+    # UPDATED: Passing down use_guardrails explicitly to the UI chat handler
+    render_chat_tab(
+        vectorstore=vectorstore, 
+        nvidia_api_key=nvidia_api_key, 
+        use_guardrails=use_guardrails, 
+        guard_model=guard_model, 
+        chat_model=chat_model
+    )
 
 with tab_docs:
     render_docs_tab()
