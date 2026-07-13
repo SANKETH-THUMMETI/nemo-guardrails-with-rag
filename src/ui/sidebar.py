@@ -14,10 +14,13 @@ def render_sidebar() -> tuple:
         st.divider()
 
         st.subheader("🔑 Bring Your Own Key")
+        st.caption("Keys are used only for this session and never stored.")
+
         nvidia_api_key = st.text_input(
             "NVIDIA API Key",
             type="password",
             placeholder="nvapi-...",
+            help="Get your key at build.nvidia.com or integrate.api.nvidia.com",
         )
 
         if nvidia_api_key:
@@ -29,7 +32,7 @@ def render_sidebar() -> tuple:
 
         st.subheader("⚙️ Execution Strategy")
         
-        # NEW: Toggle button to let you choose 1 model or 2 models
+        # Toggle choice: 1 model or 2 models execution
         use_guardrails = st.checkbox(
             "Enable Guardrail Shield (Uses 2 Models)", 
             value=True,
@@ -46,13 +49,13 @@ def render_sidebar() -> tuple:
             "meta/llama-3.3-70b-instruct"
         ]
         
-        # Updated: The selectbox disables itself if use_guardrails is unchecked
+        # This dropdown turns gray/disabled if "Enable Guardrail Shield" is unchecked
         guard_model = st.selectbox(
             "① Guard model — NeMo intent classification",
             options=guard_options,
             index=0,
             disabled=not use_guardrails,
-            help="NeMo uses this model to decide whether your message is off-topic or a jailbreak.",
+            help="NeMo uses this model to decide whether your message is off-topic, unsafe, or a jailbreak.",
         )
 
         chat_options = [
@@ -64,11 +67,14 @@ def render_sidebar() -> tuple:
             "② Chat model — RAG answer generation",
             options=chat_options,
             index=0,
-            help="Used to generate the final answer from the top-3 HR policy chunks.",
+            help="Used to generate the final answer from the top-3 HR policy chunks retrieved by FAISS.",
         )
 
         st.divider()
+
+        st.subheader("⚙️ Pipeline Status")
+        st.markdown(f"**Mode:** {'🛡️ Dual-Model Guarded' if use_guardrails else '⚡ Single-Model RAG Only'}")
+        st.divider()
         st.caption(f"Python {sys.version.split()[0]} · NVIDIA NIM")
 
-    # Return the toggle along with the other choices
     return nvidia_api_key, use_guardrails, guard_model, chat_model
