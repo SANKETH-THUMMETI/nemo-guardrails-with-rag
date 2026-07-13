@@ -11,7 +11,9 @@ import time
 import traceback as tb
 from concurrent.futures import ThreadPoolExecutor
 
-from langchain_groq import ChatGroq
+# CHANGED: Replaced langchain_groq with native langchain_nvidia_ai_endpoints
+from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.guards import build_rails, parse_nemo_response
 from src.rag import retrieve
@@ -25,10 +27,11 @@ def check_output(text: str) -> list:
             if re.search(pat, text)]
 
 
-def run_pipeline(message: str, groq_key: str, guard_model: str, chat_model: str, vectorstore) -> tuple:
+# CHANGED: Updated parameter signature to accept nvidia_api_key instead of groq_key
+def run_pipeline(message: str, nvidia_api_key: str, guard_model: str, chat_model: str, vectorstore) -> tuple:
     """
     Returns (reply: str, trace: dict).
-    Makes 2 LLM calls: NeMo guard (intent classification) + Groq chat (RAG answer).
+    Makes 2 LLM calls: NeMo guard (intent classification) + NVIDIA NIM chat (RAG answer).
     NeMo runs in a worker thread to isolate asyncio from Streamlit's event loop.
     """
     trace   = {}
@@ -36,7 +39,12 @@ def run_pipeline(message: str, groq_key: str, guard_model: str, chat_model: str,
 
     # ── LLM ① — NeMo input rails ─────────────────────────────────────────────
     def _nemo_worker():
-        llm   = ChatGroq(api_key=groq_key, model=guard_model, temperature=0)
+        # CHANGED: Using ChatNVIDIA to drive the NeMo Guardrails engine configuration
+        llm = ChatNVIDIA(
+            nvidia_api_key=nvidia_api_key, 
+            model=guard_model, 
+            temperature=0.0
+        )
         rails = build_rails(llm)
         async def _run():
             return await rails.generate_async(
@@ -88,10 +96,19 @@ def run_pipeline(message: str, groq_key: str, guard_model: str, chat_model: str,
     gen_error = None
     answer    = ""
     try:
-        llm  = ChatGroq(api_key=groq_key, model=chat_model, temperature=0)
+        # CHANGED: ChatGroq initialization swapped to ChatNVIDIA client with endpoint setup
+        llm = ChatNVIDIA(
+            nvidia_api_key=nvidia_api_key, 
+            model=chat_model, 
+            temperature=1.0,
+            top_p=1.0,
+            max_tokens=16384,
+            seed=42
+        )
+        # CHANGED: Replaced pure dict formats with proper LangChain Message constructs
         resp = llm.invoke([
-            {"role": "system", "content": HR_SYSTEM_PROMPT.format(context=context_text)},
-            {"role": "user",   "content": message},
+            SystemMessage(content=HR_SYSTEM_PROMPT.format(context=context_text)),
+            HumanMessage(content=message),
         ])
         answer = resp.content
     except Exception:
