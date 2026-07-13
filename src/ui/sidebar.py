@@ -43,13 +43,14 @@ def render_sidebar() -> tuple:
 
         st.subheader("🤖 Model Selection")
 
+        # Added meta/llama-3.1-70b-instruct here
         guard_options = [
             "z-ai/glm-5.2",
             "deepseek-ai/deepseek-v4-pro",
-            "meta/llama-3.3-70b-instruct"
+            "meta/llama-3.3-70b-instruct",
+            "meta/llama-3.1-70b-instruct"
         ]
         
-        # This dropdown turns gray/disabled if "Enable Guardrail Shield" is unchecked
         guard_model = st.selectbox(
             "① Guard model — NeMo intent classification",
             options=guard_options,
@@ -58,9 +59,11 @@ def render_sidebar() -> tuple:
             help="NeMo uses this model to decide whether your message is off-topic, unsafe, or a jailbreak.",
         )
 
+        # Added meta/llama-3.1-70b-instruct here too
         chat_options = [
             "deepseek-ai/deepseek-v4-flash",
-            "meta/llama-3.3-70b-instruct"
+            "meta/llama-3.3-70b-instruct",
+            "meta/llama-3.1-70b-instruct"
         ]
 
         chat_model = st.selectbox(
