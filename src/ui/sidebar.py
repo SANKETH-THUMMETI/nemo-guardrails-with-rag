@@ -64,7 +64,10 @@ def render_sidebar() -> tuple:
             "deepseek-ai/deepseek-v4-flash",
             "meta/llama-3.3-70b-instruct",
             "meta/llama-3.1-70b-instruct",
-            "nvidia/nemotron-3-ultra-550b-a55b"
+            "nvidia/nemotron-3-ultra-550b-a55b",
+            "qwen3.5-397b-a17b",
+            "gemma-4-31b-it",
+            "minimax-m2.7"
         ]
 
         chat_model = st.selectbox(
